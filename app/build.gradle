@@ -12,9 +12,10 @@ android {
     defaultConfig {
         applicationId "com.kxy.excelreader"
         minSdk 26
-        targetSdk 34
+        targetSdk 26
         versionCode 1
         versionName "1.0"
+        multiDexEnabled true
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -29,6 +30,20 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    packagingOptions {
+        exclude 'META-INF/INDEX.LIST'
+        exclude 'META-INF/proguard/androidx-annotations.pro'
+        exclude 'META-INF/proguard/androidx-annotation.pro'
+        exclude 'META-INF/proguard/android-support-annotations.pro'
+        exclude 'META-INF/proguard/com.google.android.material.pro'
+        exclude 'META-INF/proguard/com.android.support.support-annotations.pro'
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+    }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
@@ -39,12 +54,16 @@ android {
 }
 
 dependencies {
-
+    implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'com.alibaba:easyexcel:3.3.3'
+//    implementation 'com.alibaba:easyexcel:3.3.3'
+    implementation 'com.google.code.gson:gson:2.8.8'
+    implementation 'javax.xml.stream:stax-api:1.0'
+//    implementation 'javax.xml:jaxp-api:2.3.1'
+//    implementation 'com.android.support:multidex:1.0.1'
 }
