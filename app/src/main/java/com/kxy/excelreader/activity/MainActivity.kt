@@ -1,25 +1,30 @@
 package com.kxy.excelreader.activity
 
-//import com.alibaba.excel.EasyExcel
-//import com.alibaba.excel.context.AnalysisContext
-//import com.alibaba.excel.enums.CellExtraTypeEnum
-//import com.alibaba.excel.event.AnalysisEventListener
-//import com.alibaba.excel.metadata.CellExtra
-//import com.alibaba.excel.support.ExcelTypeEnum
-//import com.alibaba.excel.util.ListUtils
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.webkit.WebSettings
+import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.kxy.excelreader.R
 import com.kxy.excelreader.databinding.ActivityMainBinding
+import org.apache.poi.hssf.usermodel.HSSFCellStyle
 import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.ss.usermodel.CellType
+import org.apache.poi.ss.usermodel.Color
+import org.apache.poi.ss.usermodel.HorizontalAlignment
+import org.apache.poi.ss.usermodel.Sheet
+import org.apache.poi.ss.usermodel.VerticalAlignment
 import org.apache.poi.ss.util.CellRangeAddress
-import org.apache.poi.ss.util.CellReference
+import org.apache.poi.xssf.usermodel.XSSFColor
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
+import java.io.IOException
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,6 +32,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(ActivityMainBinding.inflate(layoutInflater).root)
         readExcel(getFile())
+//        val intent = Intent(this, ExcelRead::class.java)
+//        intent.putExtra("name", "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件.xls")
+//        startActivity(intent)
     }
 
     private fun getFile(): String {
@@ -52,136 +60,178 @@ class MainActivity : AppCompatActivity() {
     }
 
     // 读取 Excel 文件
+    @SuppressLint("SetJavaScriptEnabled")
     private fun readExcel(filePath: String?) {
-//        var excelReader: ExcelReader? = null
-//        try {
-//            excelReader = EasyExcel.read(filePath).build()
-//            val readSheet = EasyExcel.readSheet(0).build()
-//            excelReader.read(readSheet)
-//        } finally {
-//            excelReader?.finish()
-//        }
-//        EasyExcel.read(filePath, NoModelDataListener())
-//            .extraRead(CellExtraTypeEnum.COMMENT)
-//            .extraRead(CellExtraTypeEnum.MERGE)
-//            .extraRead(CellExtraTypeEnum.MERGE)
-//            .excelType(ExcelTypeEnum.XLSX)
-//            .sheet().doRead()
-//
-//    }
-        val workbook = XSSFWorkbook(filePath)
-        val sheet = workbook.getSheetAt(0)
-        for (row in sheet) {
-            for (cell:Cell in row) {
-                Log.e(TAG, "cell type  ${cell.cellType}")
-                Log.e(TAG, "richStringCellValue  ${cell.richStringCellValue}")
+        try {
+            val workbook = XSSFWorkbook(filePath)
+            // 2. 生成HTML代码
+            val htmlContent = StringBuilder()
+            htmlContent.append("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/html401'>")
+            htmlContent.append("<head><meta http-equiv=Content-Type content='text/html; charset=utf-8'><meta name=ProgId content=Excel.Sheet>")
 
-                val font = workbook.getFontAt(cell.cellStyle.fontIndex)
-                Log.e(TAG, "Font Color:  ${font.boldweight}")
-                Log.e(TAG, "Font Size:  ${font.fontHeightInPoints}")
+            // 3. 遍历每个工作表
+            for (sheetIndex in 0 until workbook.numberOfSheets) {
+                val sheet: Sheet = workbook.getSheetAt(sheetIndex)
+                htmlContent.append("<table width=\"100%\" style=\"border:1px solid #000;border-width:1px 0 0 1px;margin:2px 0 2px 0;border-collapse:collapse;\">")
+                // 4. 遍历每一行
+                for (row in sheet) {
+                    val height = row.height / 15.625
+                    htmlContent.append("<tr height=\"$height\" style=\"border:1px solid #000;border-width:0 1px 1px 0;margin:2px 0 2px 0;\">")
+                    // 5. 遍历每一列
+                    for (cell in row) {
+                        if (cell.cellType == CellType.BLANK) {
+                            continue
+                        }else {
+                            val tdStyle = StringBuilder("<td style=\"border:1px solid #000; border-width:0 1px 1px 0;margin:2px 0 2px 0; ")
+                            val cellStyle = cell.cellStyle
+                            if (cellStyle.fillForegroundColorColor != null) {
+                                val bgColor = getCellHexColor(cellStyle.fillForegroundColorColor)
+                                if (!bgColor.isNullOrEmpty()) {
+                                    tdStyle.append(" background-color:$bgColor;")
+                                }
 
-                val cellRef = CellReference(cell)
-                Log.e(TAG, "row ${cellRef.row}")
-                Log.e(TAG, "col ${cellRef.col}")
-                Log.e(TAG, "背景色 ${cell.cellStyle.fillForegroundColorColor}")
+                            }
+
+                            val font = workbook.getFontAt(cellStyle.fontIndex)
+                            val fontColor = getCellHexColor(font.xssfColor)
+                            val isBold = font.bold
+                            val fontHeight = font.fontHeight / 2
+
+                            if (!fontColor.isNullOrEmpty()) {
+                                tdStyle.append(" color:$fontColor;")
+                            }
+
+                            if (isBold) {
+                                tdStyle.append(" font-weight:bold;")
+                            }
+
+                            tdStyle.append(" font-size:$fontHeight%;\"")
+                            htmlContent.append(tdStyle)
+
+                            val width = (sheet.getColumnWidth(cell.columnIndex) )
+                            val cellReginCol = getMergerCellRegionCol(sheet, cell.rowIndex, cell.columnIndex)
+                            val cellReginRow = getMergerCellRegionRow(sheet, cell.rowIndex, cell.columnIndex)
+                            val hAlign = convertAlignToHtml(cellStyle.alignment)
+                            val vAlign = convertVerticalAlignToHtml(cellStyle.verticalAlignment)
+
+                            htmlContent.append(" align=\"$hAlign\"")
+                            htmlContent.append(" valign=\"$vAlign\"")
+                            htmlContent.append(" width=\"$width\"")
+                            htmlContent.append(" colspan=\"$cellReginCol\"")
+                            htmlContent.append(" rowspan=\"$cellReginRow\">")
+
+                            htmlContent.append(cellToString(cell))
+                            htmlContent.append("</td>")
+
+                        }
+                    }
+
+                    htmlContent.append("</tr>")
+                }
             }
+
+            htmlContent.append("</table></body></html>")
+
+            val webView = findViewById<WebView>(R.id.webView)
+            val setting = webView.settings
+            setting.javaScriptEnabled = true
+            setting.builtInZoomControls = true
+            setting.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+            webView.setInitialScale(300)
+            webView.loadData(htmlContent.toString(), null, "utf-8")
+
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
-
-        // 3. 获取所有合并单元格区域
-        // 3. 获取所有合并单元格区域
-       Log.e(TAG, "合并单元格 ${sheet.numMergedRegions}")
-        val mergedRegion = sheet.getMergedRegion(50)
-        // 4. 检查是否有合并单元格
-
-        // 4. 检查是否有合并单元格
-//        if (mergedRegions.size > 0) {
-//            println("Sheet contains merged cells.")
-//
-//            // 5. 遍历合并单元格区域
-//            for (mergedRegion in mergedRegions) {
-                val firstRow: Int = mergedRegion.getFirstRow()
-                val lastRow: Int = mergedRegion.getLastRow()
-                val firstCol: Int = mergedRegion.getFirstColumn()
-                val lastCol: Int = mergedRegion.getLastColumn()
-                Log.e(TAG, "Merged Region: ($firstRow, $firstCol) to ($lastRow, $lastCol)")
-//            }
-//        } else {
-//            println("Sheet does not contain merged cells.")
-//        }
     }
 
 
     val TAG = "excelReader"
-//
-//class NoModelDataListener : AnalysisEventListener<Map<Int, String>>() {
-//
-//    /**
-//     * 每隔5条存储数据库，实际使用中可以100条，然后清理list ，方便内存回收
-//     */
-//    private val BATCH_COUNT = 5
-//    private var cachedDataList = ListUtils.newArrayListWithExpectedSize<Map<Int, String>>(BATCH_COUNT)
-//
-//    override fun invoke(data: Map<Int, String>, context: AnalysisContext) {
-//        Log.e(TAG, data.entries.toString())
-//        Log.e("$TAG 解析到一条数据:{}", Gson().toJson(data).toString())
-//
-//
-//        cachedDataList.add(data)
-//        if (cachedDataList.size >= BATCH_COUNT) {
-//            //每5条加载一次数据
-//            saveData()
-//            cachedDataList = ListUtils.newArrayListWithExpectedSize<Map<Int, String>>(BATCH_COUNT)
-//        }
-//    }
-//
-//
-//    override fun extra(extra: CellExtra, context: AnalysisContext?) {
-//        Log.e("读取到了一条额外信息:{}", Gson().toJson(extra).toString())
-//        when (extra.type) {
-//            CellExtraTypeEnum.COMMENT -> Log.e(
-//                "额外信息是批注,在rowIndex:{},columnIndex;{},内容是:{}", extra.rowIndex.toString() + "=>" +
-//                extra.columnIndex + "=>" +
-//                extra.text
-//            )
-//
-//            CellExtraTypeEnum.HYPERLINK -> if ("Sheet1!A1" == extra.text) {
-//                Log.e(
-//                    "额外信息是超链接,在rowIndex:{},columnIndex;{},内容是:{}", extra.rowIndex.toString() + "=>" +
-//                    extra.columnIndex + "=>" + extra.text
-//                )
-//            } else if ("Sheet2!A1" == extra.text) {
-//                Log.e(
-//                    "额外信息是超链接,而且覆盖了一个区间,在firstRowIndex:{},firstColumnIndex;{},lastRowIndex:{},lastColumnIndex:{},"
-//                            + "内容是:{}",
-//                    extra.firstRowIndex.toString()+ "=>" + extra.firstColumnIndex + "=>" + extra.lastRowIndex + "=>" +
-//                    extra.lastColumnIndex + "=>" + extra.text
-//                )
-//            } else {
-////                Assertions.fail("Unknown hyperlink!")
-//            }
-//
-//            CellExtraTypeEnum.MERGE -> Log.e(
-//                "额外信息是合并单元格,而且覆盖了一个区间,在firstRowIndex:{},firstColumnIndex;{},lastRowIndex:{},lastColumnIndex:{}",
-//                extra.firstRowIndex.toString() + "=>" + extra.firstColumnIndex + "=>" + extra.lastRowIndex + "=>" +
-//                extra.lastColumnIndex
-//            )
-//
-//            else -> {}
-//        }
-//    }
-//
-//    override fun doAfterAllAnalysed(context: AnalysisContext) {
-//        saveData()
-//        Log.e(TAG,"所有数据解析完成！")
-//    }
-//
-//    /**
-//     * 加上存储数据库
-//     */
-//    private fun saveData() {
-//        Log.e(TAG, "{}条数据，开始存储数据库！${cachedDataList.size}")
-//        // 存储数据库成功的逻辑
-//        Log.e(TAG,"存储数据库成功！")
-//    }
+    private fun cellToString(cell: Cell): String {
+        return when (cell.cellType) {
+            CellType.STRING -> cell.stringCellValue
+            CellType.NUMERIC -> cell.numericCellValue.toString()
+            CellType.BOOLEAN -> cell.booleanCellValue.toString()
+            else -> ""
+        }
+    }
+
+    private fun getCellHexColor(color: Color): String? {
+        if (color is XSSFColor) {
+            val rgb = color.argb
+            if (rgb != null) {
+                return String.format("#%02X%02X%02X", rgb[1], rgb[2], rgb[3])
+            }
+        }
+        return null
+    }
+
+    @Throws(IOException::class)
+    private fun getMergerCellRegionCol(
+        sheet: Sheet, cellRow: Int,
+        cellCol: Int
+    ): Int {
+        var retVal = 0
+        val sheetMergerCount = sheet.numMergedRegions
+        for (i in 0 until sheetMergerCount) {
+            val cra = sheet.getMergedRegion(i) as CellRangeAddress
+            val firstRow = cra.firstRow
+            val firstCol = cra.firstColumn
+            val lastRow = cra.lastRow
+            val lastCol = cra.lastColumn
+            if (cellRow in firstRow..lastRow) {
+                if (cellCol in firstCol..lastCol) {
+                    retVal = lastCol - firstCol + 1
+                    break
+                }
+            }
+        }
+        return retVal
+    }
+
+    @Throws(IOException::class)
+    private fun getMergerCellRegionRow(
+        sheet: Sheet, cellRow: Int,
+        cellCol: Int
+    ): Int {
+        var retVal = 0
+        val sheetMergerCount = sheet.numMergedRegions
+        for (i in 0 until sheetMergerCount) {
+            val cra = sheet.getMergedRegion(i) as CellRangeAddress
+            val firstRow = cra.firstRow // �ϲ���Ԫ��CELL��ʼ��
+            val firstCol = cra.firstColumn // �ϲ���Ԫ��CELL��ʼ��
+            val lastRow = cra.lastRow // �ϲ���Ԫ��CELL������
+            val lastCol = cra.lastColumn // �ϲ���Ԫ��CELL������
+            if (cellRow in firstRow..lastRow) { // �жϸõ�Ԫ���Ƿ����ںϲ���Ԫ����
+                if (cellCol in firstCol..lastCol) {
+                    retVal = lastRow - firstRow + 1 // �õ��ϲ�������
+                    break
+                }
+            }
+        }
+        return retVal
+    }
+
+    private fun convertAlignToHtml(alignment: HorizontalAlignment): String? {
+        var align = "left"
+        when (alignment) {
+            HorizontalAlignment.LEFT -> align = "left"
+            HorizontalAlignment.CENTER -> align = "center"
+            HorizontalAlignment.RIGHT -> align = "right"
+            else -> {}
+        }
+        return align
+    }
+
+    private fun convertVerticalAlignToHtml(verticalAlignment: VerticalAlignment): String? {
+        var valign = "middle"
+        when (verticalAlignment) {
+            VerticalAlignment.BOTTOM -> valign = "bottom"
+            VerticalAlignment.CENTER -> valign = "center"
+            VerticalAlignment.TOP -> valign = "top"
+            else -> {}
+        }
+        return valign
+    }
 }
 
