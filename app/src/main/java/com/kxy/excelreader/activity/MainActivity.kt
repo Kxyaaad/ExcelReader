@@ -7,13 +7,11 @@ import android.os.Bundle
 import android.util.Log
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.kxy.excelreader.R
 import com.kxy.excelreader.databinding.ActivityMainBinding
-import org.apache.poi.hssf.usermodel.HSSFCellStyle
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellStyle
 import org.apache.poi.ss.usermodel.CellType
@@ -24,8 +22,8 @@ import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.VerticalAlignment
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFColor
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.apache.poi.xssf.usermodel.XSSFRichTextString
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.IOException
 
@@ -44,22 +42,27 @@ class MainActivity : AppCompatActivity() {
     private fun getFile(): String {
         if (ContextCompat.checkSelfPermission(
                 this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                Manifest.permission.READ_EXTERNAL_STORAGE
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             // 如果没有权限，则请求权限
             val REQUEST_CODE_STORAGE_PERMISSION = 10086
             ActivityCompat.requestPermissions(
                 this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                arrayOf(
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                ),
                 REQUEST_CODE_STORAGE_PERMISSION
             )
         }
-        val file: File = File(
-            "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件.xlsx"
+        val file = File(
+            "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件-9.xlsx"
         )
 
-        return "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件.xlsx"
+        Log.e("打开文件", file.absolutePath)
+
+        return file.absolutePath
     }
 
     // 读取 Excel 文件
@@ -120,6 +123,7 @@ class MainActivity : AppCompatActivity() {
                             htmlContent.append(">")
 
                             extractedTextContent(htmlContent, hAlign, workbook, cellStyle, cell)
+
                             htmlContent.append("</td>")
 
                         }
@@ -153,7 +157,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         htmlContent.append("<p style=\"text-align:$hAlign;\">")
 
-        if (cell.cellType == CellType.STRING) {
+        if (cell.cellType == CellType.STRING && cell.richStringCellValue.numFormattingRuns() > 0) {
             // 4. 获取单元格内容
             val richTextString = cell.richStringCellValue as XSSFRichTextString
             // 5. 遍历富文本内容
@@ -164,42 +168,63 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     richTextString.length()
                 }
-
                 // 获取文本
-                val text = richTextString.string.substring(startIndex, endIndex)
-                // 获取字体信息
+                var text = richTextString.string.substring(startIndex, endIndex)
                 val fontIndex = richTextString.getIndexOfFormattingRun(i)
+                // 获取字体信息
+                val font = richTextString.getFontAtIndex(startIndex)
 
-                val font = richTextString.getFontAtIndex(fontIndex)
-
+//                val font = richTextString.getFontAtIndex(fontIndex)
                 // 获取字体大小
                 val fontSize = font.fontHeightInPoints
+                println("富文本内容 $text")
+                println("富文本内容 ${font.fontName}")
+
+
+                for (index in 0 until countNewlines(text)) {
+                    text = text.replace("\n","<br>")
+                }
+
+
+
+                //获取下划线信息
+                var underlineH5String = when (font.underline) {
+                    Font.U_SINGLE -> "text-decoration: underline"
+                    Font.U_DOUBLE -> "text-decoration: underline double"
+                    Font.U_SINGLE_ACCOUNTING -> "text-decoration: underline wavy"
+                    Font.U_DOUBLE_ACCOUNTING -> "text-decoration: underline wavy double"
+                    else -> ""
+                }
+
+                underlineH5String +=  if (font.strikeout) " line-through" else ";"
+
 
                 // 获取字体颜色
                 val fontColor = font.xssfColor
-                println(" 富文本内容 fontColor: $fontColor")
                 val fontColorHex = getCellHexColor(fontColor) ?: "#000000"
-
-                // 输出信息
-                println(" 富文本内容 Text: $text")
-                println(" 富文本内容 startIndex: $startIndex")
-                println(" 富文本内容 endIndex: $endIndex")
-                println(" 富文本内容 fontIndex: $fontIndex")
-                println(" 富文本内容 Font Size: $fontSize")
-                println(" 富文本内容 Font Color: $fontColorHex")
                 htmlContent.append("<span  style=\"")
                 htmlContent.append("font-size:$fontSize;")
+                htmlContent.append("font-family: \"${font.fontName}\";")
+                if (font.bold) htmlContent.append(" font-weight:bold;")
+                htmlContent.append(" $underlineH5String")
                 htmlContent.append(" color:$fontColorHex;\">")
+                if(font.italic) htmlContent.append("<i>")
                 htmlContent.append(text)
+                if(font.italic) htmlContent.append("</i>")
                 htmlContent.append("</span>")
-
             }
+
         } else {
+            var text = cellToString(cell)
+            for (index in 0 until countNewlines(text)) {
+                text = text.replace("\n","<br>")
+            }
+
             htmlContent.append("<span  style=\"")
             val font = workbook.getFontAt(cellStyle.fontIndex)
             val fontColor = getCellHexColor(font.xssfColor)
             val isBold = font.bold
-            val fontHeight = font.fontHeight / 2
+            val fontHeight = font.fontHeightInPoints
 
             if (!fontColor.isNullOrEmpty()) {
                 htmlContent.append(" color:$fontColor;")
@@ -208,10 +233,13 @@ class MainActivity : AppCompatActivity() {
             if (isBold) {
                 htmlContent.append(" font-weight:bold;")
             }
-
-
-            htmlContent.append(" font-size:$fontHeight%;\"")
-            htmlContent.append(">" + cellToString(cell) + "</span>")
+            htmlContent.append(" font-size:$fontHeight;")
+            htmlContent.append("font-family: \"${font.fontName}\";\"")
+            htmlContent.append(">")
+            if(font.italic) htmlContent.append("<i>")
+            htmlContent.append(text)
+            if(font.italic) htmlContent.append("</i>")
+            htmlContent.append("</span>")
         }
 
 
@@ -305,6 +333,12 @@ class MainActivity : AppCompatActivity() {
             else -> {}
         }
         return valign
+    }
+
+    fun countNewlines(inputString: String): Int {
+        val regex = Regex("\n")
+        val matches = regex.findAll(inputString)
+        return matches.count()
     }
 }
 
