@@ -1,15 +1,19 @@
 package com.kxy.officereader
 
+import android.util.Log
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellStyle
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.ss.usermodel.Color
+import org.apache.poi.ss.usermodel.Drawing
 import org.apache.poi.ss.usermodel.Font
 import org.apache.poi.ss.usermodel.HorizontalAlignment
 import org.apache.poi.ss.usermodel.Sheet
 import org.apache.poi.ss.usermodel.VerticalAlignment
 import org.apache.poi.ss.util.CellRangeAddress
 import org.apache.poi.xssf.usermodel.XSSFColor
+import org.apache.poi.xssf.usermodel.XSSFDrawing
+import org.apache.poi.xssf.usermodel.XSSFPicture
 import org.apache.poi.xssf.usermodel.XSSFRichTextString
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.IOException
@@ -22,12 +26,15 @@ class ExcelReader {
             val workbook = XSSFWorkbook(filePath)
             // 2. 生成HTML代码
             htmlContent.append("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/html401'>")
-            htmlContent.append("<head><meta http-equiv=Content-Type content='text/html; charset=utf-8'><meta name=ProgId content=Excel.Sheet></head>")
-
+            htmlContent.append("<head>")
+            htmlContent.append("<meta http-equiv=Content-Type content='text/html; charset=utf-8'><meta name=ProgId content=Excel.Sheet>")
+            htmlContent.append("</head><body><div class=\"container\">")
             // 3. 遍历每个工作表
             for (sheetIndex in 0 until workbook.numberOfSheets) {
                 val sheet: Sheet = workbook.getSheetAt(sheetIndex)
-                htmlContent.append("<table style=\" width:946px;border:1px solid #000;border-width:1px 0 0 1px;margin:2px 0 2px 0;border-collapse:collapse;\">")
+                htmlContent.append("<a class=\"btn btn-block btn-default\" style=\"margin:10px 0;font-size:large;text-align:left;overflow:hidden;text-overflow:ellipsis;\" data-toggle=\"collapse\" href=\"#t_468047691${sheetIndex}\" aria-expanded=\"true\"><b>${sheet.sheetName}</b></a>")
+                htmlContent.append("<div id=\"t_468047691${sheetIndex}\" class=\"collapse in\"><div class=\"table-responsive table-sheet-wrap\">")
+                htmlContent.append("<table class=\"table table-bordered table-hover\" style=\" width:946px;border:1px solid #000;border-width:1px 0 0 1px;margin:2px 0 2px 0;border-collapse:collapse;\">")
                 // 4. 遍历每一行
                 for (row in sheet) {
                     val height = row.height / 15.625
@@ -47,7 +54,6 @@ class ExcelReader {
                                 }
 
                             }
-
 
                             htmlContent.append(tdStyle)
 
@@ -80,8 +86,15 @@ class ExcelReader {
 
                     htmlContent.append("</tr>")
                 }
+                //读取图片
+                if (sheet.drawingPatriarch != null) {
+                    getPictures(sheet.drawingPatriarch, htmlContent, sheet)
+                }
+
+                htmlContent.append("</table></div></div>")
             }
-            htmlContent.append("</table></body></html>")
+
+            htmlContent.append("</div></body></html>")
 
         } catch (e: IOException) {
             e.printStackTrace()
@@ -200,10 +213,16 @@ class ExcelReader {
 
     private fun getCellHexColor(color: Color?): String? {
         if (color is XSSFColor) {
-            val rgb = color.argb
-            if (rgb != null) {
-                return String.format("#%02X%02X%02X", rgb[1], rgb[2], rgb[3])
+            if (color.isRGB) {
+                val rgb = color.argb
+                if (rgb != null) {
+                    return String.format("#%02X%02X%02X", rgb[1], rgb[2], rgb[3])
+                }
+            } else {
+                Log.e("颜色格式2", color.index.toString())
+                return null
             }
+
         }
         return null
     }
@@ -280,6 +299,40 @@ class ExcelReader {
         val regex = Regex("\n")
         val matches = regex.findAll(inputString)
         return matches.count()
+    }
+
+    private fun getPictures(drawing: Drawing<*>, htmlContent: StringBuilder, sheet: Sheet) {
+        if (drawing is XSSFDrawing) {
+            val xssfDrawing = drawing as XSSFDrawing
+            xssfDrawing.shapes.forEach { xssfShape ->
+                if (xssfShape is XSSFPicture) {
+                    val imageData = xssfShape.pictureData.data
+                    val base64Image = java.util.Base64.getEncoder().encodeToString(imageData)
+
+                    println("获取图片 ${xssfShape.clientAnchor.col1}")
+                    println("获取图片 ${xssfShape.clientAnchor.row1}")
+
+                    var left = 0.0
+                    for (i in 0 until xssfShape.clientAnchor.col1) {
+                        left += (sheet.getColumnWidth(i).toFloat() / 35.7)
+                    }
+
+                    var top = 0.0
+                    for (i in 0 until xssfShape.clientAnchor.row1) {
+                        top += (sheet.getRow(i).height.toFloat() / 15.625)
+                    }
+                    top += xssfShape.clientAnchor.dy1 / 91440 * 32
+                    println("获取图片 ${sheet.getColumnWidth(1).toFloat()}")
+                    println("获取图片 ${sheet.getRow(1).height}")
+                    htmlContent.append(
+                        "<div class=\"image-container\">\n" +
+                                "  <img style=\"position: absolute; left: ${left}; top:${top}\" class=\"excel-image\" src=\"data:image/png;base64," + base64Image + "\" alt=\"Excel Image\">\n" +
+                                "</div>\n"
+                    )
+                    println("获取图片 ${top}")
+                }
+            }
+        }
     }
 }
 
