@@ -125,17 +125,11 @@ class ExcelReader {
                 }
                 // 获取文本
                 var text = richTextString.string.substring(startIndex, endIndex)
-                val fontIndex = richTextString.getIndexOfFormattingRun(i)
                 // 获取字体信息
                 val font = richTextString.getFontAtIndex(startIndex)
 
-//                val font = richTextString.getFontAtIndex(fontIndex)
                 // 获取字体大小
                 val fontSize = font.fontHeightInPoints
-                println("富文本内容 $text")
-                println("富文本内容 ${font.fontName}")
-
-
                 for (index in 0 until countNewlines(text)) {
                     text = text.replace("\n", "<br>")
                 }
@@ -219,7 +213,6 @@ class ExcelReader {
                     return String.format("#%02X%02X%02X", rgb[1], rgb[2], rgb[3])
                 }
             } else {
-                Log.e("颜色格式2", color.index.toString())
                 return null
             }
 
@@ -309,9 +302,6 @@ class ExcelReader {
                     val imageData = xssfShape.pictureData.data
                     val base64Image = java.util.Base64.getEncoder().encodeToString(imageData)
 
-                    println("获取图片 ${xssfShape.clientAnchor.col1}")
-                    println("获取图片 ${xssfShape.clientAnchor.row1}")
-
                     var left = 0.0
                     for (i in 0 until xssfShape.clientAnchor.col1) {
                         left += (sheet.getColumnWidth(i).toFloat() / 35.7)
@@ -322,14 +312,11 @@ class ExcelReader {
                         top += (sheet.getRow(i).height.toFloat() / 15.625)
                     }
                     top += xssfShape.clientAnchor.dy1 / 91440 * 32
-                    println("获取图片 ${sheet.getColumnWidth(1).toFloat()}")
-                    println("获取图片 ${sheet.getRow(1).height}")
                     htmlContent.append(
                         "<div class=\"image-container\">\n" +
                                 "  <img style=\"position: absolute; left: ${left}; top:${top}\" class=\"excel-image\" src=\"data:image/png;base64," + base64Image + "\" alt=\"Excel Image\">\n" +
                                 "</div>\n"
                     )
-                    println("获取图片 ${top}")
                 }
             }
         }
