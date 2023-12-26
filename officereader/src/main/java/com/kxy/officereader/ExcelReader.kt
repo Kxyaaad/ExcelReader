@@ -16,14 +16,21 @@ import org.apache.poi.xssf.usermodel.XSSFDrawing
 import org.apache.poi.xssf.usermodel.XSSFPicture
 import org.apache.poi.xssf.usermodel.XSSFRichTextString
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import java.io.File
 import java.io.IOException
 
 class ExcelReader {
     // 读取 Excel 文件
-    public fun readExcel(filePath: String?): StringBuilder {
+    public fun readExcel(filePath: String): StringBuilder {
+        val fileType = filePath.substring(filePath.lastIndexOf(".") + 1, filePath.length)
+        if (fileType != "xlsx") {
+            return  java.lang.StringBuilder("格式错误")
+        }
+
         val htmlContent = StringBuilder()
         try {
             val workbook = XSSFWorkbook(filePath)
+
             // 2. 生成HTML代码
             htmlContent.append("<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/html401'>")
             htmlContent.append("<head>")

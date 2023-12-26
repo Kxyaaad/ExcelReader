@@ -22,7 +22,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(ActivityMainBinding.inflate(layoutInflater).root)
-//        readExcel()
         getFile()
     }
 
@@ -45,7 +44,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         val file = File(
-            "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件-2.xlsx"
+            "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件.xls"
         )
 
         Log.e("打开文件", file.absolutePath)
