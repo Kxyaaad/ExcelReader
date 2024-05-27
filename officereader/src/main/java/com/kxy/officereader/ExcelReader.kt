@@ -1,6 +1,5 @@
 package com.kxy.officereader
 
-import android.util.Log
 import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.CellStyle
 import org.apache.poi.ss.usermodel.CellType
@@ -16,7 +15,6 @@ import org.apache.poi.xssf.usermodel.XSSFDrawing
 import org.apache.poi.xssf.usermodel.XSSFPicture
 import org.apache.poi.xssf.usermodel.XSSFRichTextString
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import java.io.File
 import java.io.IOException
 
 class ExcelReader {
@@ -303,8 +301,7 @@ class ExcelReader {
 
     private fun getPictures(drawing: Drawing<*>, htmlContent: StringBuilder, sheet: Sheet) {
         if (drawing is XSSFDrawing) {
-            val xssfDrawing = drawing as XSSFDrawing
-            xssfDrawing.shapes.forEach { xssfShape ->
+            drawing.shapes.forEach { xssfShape ->
                 if (xssfShape is XSSFPicture) {
                     val imageData = xssfShape.pictureData.data
                     val base64Image = java.util.Base64.getEncoder().encodeToString(imageData)

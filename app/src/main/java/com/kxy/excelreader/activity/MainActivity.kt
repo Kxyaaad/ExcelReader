@@ -15,6 +15,10 @@ import com.kxy.excelreader.databinding.ActivityMainBinding
 import java.io.File
 
 import com.kxy.officereader.ExcelReader
+import com.kxy.officereader.WordReader
+import java.io.BufferedWriter
+import java.io.FileWriter
+import java.io.IOException
 
 
 class MainActivity : AppCompatActivity() {
@@ -22,7 +26,30 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(ActivityMainBinding.inflate(layoutInflater).root)
-        getFile()
+//        getFile()
+        val htmlContent = WordReader.readWord("/storage/emulated/0/Download/东部经开区智慧政务平台-经开通APP-用户操作手册-3.docx")
+
+        val outputFilePath = "/storage/emulated/0/Download/东部经开区智慧政务平台-经开通APP-用户操作手册.html"
+        try  {
+            BufferedWriter(FileWriter(outputFilePath)).use { writer ->
+                writer.write(htmlContent)
+            }
+        }catch (e: IOException) {
+            Log.e("写入错误", e.message ?: "未知错误")
+        }
+        val webView = findViewById<WebView>(R.id.webView)
+        val setting = webView.settings
+        setting.javaScriptEnabled = true
+        setting.builtInZoomControls = true
+        setting.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+//            webView.setInitialScale(300)
+       println("html内容 => $htmlContent")
+//        webView.loadData(htmlContent.toString(), "text/html", "utf-8")
+        webView.loadUrl(outputFilePath)
+    }
+
+    private fun wordToPdf() {
+
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -44,7 +71,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
         val file = File(
-            "/storage/emulated/0/Download/四川省工程技术人员职称申报评审基本条件.xls"
+            "/storage/emulated/0/Android/data/com.wb.jkt/files/ZONE_XBPM/process/四川省工程技术人员职称申报评审基本条件.xlsx"
         )
 
         Log.e("打开文件", file.absolutePath)
